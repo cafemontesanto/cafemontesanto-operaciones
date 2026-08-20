@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Café Montesanto — Operaciones</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Catamaran:wght@200;400;600;700&display=swap');
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: 'Catamaran', sans-serif; color: #2B2B2B; background: #FBF9F7; font-size: 16px; -webkit-text-size-adjust: 100%; }
+#cm-app { max-width: 720px; margin: 0 auto; position: relative; min-height: 100vh; background: #fff; }
+h1, h2, h3 { font-family: 'Catamaran', sans-serif; margin: 0; }
+button { font-family: 'Catamaran', sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+input, select { font-family: 'Catamaran', sans-serif; font-size: 16px; }
+.cm-header { padding: 20px 18px 0; }
+.cm-eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5C2B3E; font-weight: 700; }
+.cm-title { font-size: 24px; font-weight: 700; color: #2B2B2B; margin-top: 4px; }
+.cm-sub { font-size: 14px; color: #8a8580; margin-top: 4px; }
+.cm-user-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: #F2EBE5; margin-top: 14px; flex-wrap: wrap; gap: 8px; }
+.cm-user-info { font-size: 14px; line-height: 1.4; }
+.cm-user-info b { color: #5C2B3E; }
+.cm-badge-socio { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; background: #5C2B3E; padding: 2px 8px; border-radius: 10px; margin-left: 6px; }
+.cm-logout-btn { font-size: 13px; color: #a32d2d; background: none; border: none; text-decoration: underline; padding: 8px 4px; min-height: 40px; }
+.cm-roles { display: flex; gap: 8px; padding: 16px 18px 0; flex-wrap: wrap; }
+.cm-role-btn { padding: 10px 16px; border-radius: 20px; border: 1px solid #C9BFB8; background: #fff; font-size: 14px; font-weight: 600; color: #5C2B3E; min-height: 42px; }
+.cm-role-btn.active { background: #5C2B3E; color: #F2EBE5; border-color: #5C2B3E; }
+.cm-tabs { display: flex; gap: 4px; padding: 18px 18px 0; border-bottom: 1px solid #E4DED7; overflow-x: auto; }
+.cm-tab { padding: 12px 14px; font-size: 14px; font-weight: 600; color: #8a8580; border: none; background: none; border-bottom: 3px solid transparent; margin-bottom: -1px; min-height: 44px; white-space: nowrap; }
+.cm-tab.active { color: #5C2B3E; border-bottom-color: #5C2B3E; }
+.cm-panel { padding: 18px; }
+.cm-date { font-size: 15px; color: #5C2B3E; font-weight: 700; margin-bottom: 4px; text-transform: capitalize; }
+.cm-progress-wrap { background: #F2EBE5; border-radius: 10px; padding: 14px 16px; margin: 10px 0 18px; }
+.cm-progress-label { font-size: 13px; color: #6E6E6E; margin-bottom: 6px; }
+.cm-progress-track { background: #E4DED7; border-radius: 6px; height: 10px; overflow: hidden; }
+.cm-progress-fill { background: #5C2B3E; height: 100%; border-radius: 6px; transition: width 0.2s; }
+.cm-task { display: flex; align-items: flex-start; gap: 12px; padding: 14px 0; border-bottom: 1px solid #EFEAE5; }
+.cm-task input[type=checkbox] { margin-top: 2px; width: 26px; height: 26px; accent-color: #5C2B3E; flex-shrink: 0; }
+.cm-task label { font-size: 16px; line-height: 1.4; padding-top: 2px; }
+.cm-task .cm-by { display: block; font-size: 12px; color: #8a8580; font-style: italic; margin-top: 2px; }
+.cm-task.done label { text-decoration: line-through; color: #a39d96; }
+.cm-empty { font-size: 14px; color: #8a8580; padding: 16px 0; font-style: italic; }
+.cm-card { background: #fff; border: 1px solid #E4DED7; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+.cm-card-title { font-size: 14px; font-weight: 700; color: #5C2B3E; margin-bottom: 8px; }
+.cm-field { margin-bottom: 12px; }
+.cm-field label { display: block; font-size: 12px; color: #6E6E6E; margin-bottom: 4px; font-weight: 600; }
+.cm-field input, .cm-field select { width: 100%; border: 1px solid #C9BFB8; border-radius: 8px; padding: 12px 12px; font-size: 16px; min-height: 46px; }
+.cm-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.cm-row > * { flex: 1; min-width: 120px; }
+.cm-btn-primary { background: #5C2B3E; color: #fff; border: none; border-radius: 8px; padding: 13px 18px; font-size: 15px; font-weight: 700; min-height: 46px; width: 100%; }
+.cm-btn-secondary { background: #fff; color: #5C2B3E; border: 1.5px solid #5C2B3E; border-radius: 8px; padding: 11px 16px; font-size: 14px; font-weight: 600; min-height: 44px; }
+.cm-btn-text { background: none; border: none; color: #a32d2d; font-size: 13px; text-decoration: underline; padding: 8px 4px; min-height: 40px; }
+.cm-btn-icon { background: #fff; border: 1px solid #C9BFB8; border-radius: 6px; width: 38px; height: 38px; font-size: 16px; color: #5C2B3E; line-height: 1; padding: 0; }
+.cm-btn-icon:disabled { opacity: 0.3; }
+.cm-section-title { font-size: 17px; font-weight: 700; color: #2B2B2B; margin: 26px 0 4px; }
+.cm-section-note { font-size: 13px; color: #8a8580; margin-bottom: 12px; }
+.cm-tmpl-group-title { font-size: 12px; font-weight: 700; color: #5C2B3E; text-transform: uppercase; letter-spacing: 0.04em; margin: 18px 0 6px; }
+.cm-tmpl-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #EFEAE5; gap: 10px; flex-wrap: wrap; }
+.cm-tmpl-info { font-size: 14px; flex: 1; min-width: 140px; }
+.cm-tmpl-rec { color: #8a8580; font-size: 12px; }
+.cm-tmpl-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.cm-weekday-picks { display: flex; gap: 6px; flex-wrap: wrap; }
+.cm-weekday-picks label { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: #6E6E6E; gap: 3px; }
+.cm-weekday-picks input { width: 20px; height: 20px; }
+.cm-hidden { display: none; }
+.cm-pedido-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #EFEAE5; gap: 10px; flex-wrap: wrap; }
+.cm-pedido-info { font-size: 15px; flex: 1; min-width: 160px; }
+.cm-pedido-meta { font-size: 12px; color: #8a8580; margin-top: 2px; }
+.cm-badge-urgente { font-size: 11px; font-weight: 700; color: #a32d2d; background: #FCEBEB; padding: 3px 8px; border-radius: 10px; }
+.cm-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -18px; padding: 0 18px; }
+table.cm-admin-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 620px; }
+table.cm-admin-table th { text-align: left; background: #5C2B3E; color: #fff; padding: 8px; font-weight: 600; }
+table.cm-admin-table td { padding: 8px; border-bottom: 1px solid #EFEAE5; vertical-align: top; }
+table.cm-admin-table input, table.cm-admin-table select { width: 100%; border: 1px solid #C9BFB8; border-radius: 4px; padding: 6px; font-size: 13px; min-height: 34px; }
+.cm-rotacion-bar-wrap { margin-bottom: 10px; }
+.cm-rotacion-label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 4px; }
+.cm-rotacion-track { background: #EFEAE5; border-radius: 6px; height: 16px; overflow: hidden; }
+.cm-rotacion-fill { background: #C9BFB8; height: 100%; border-radius: 6px; }
+.cm-period-btns { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.cm-period-btn { font-size: 13px; padding: 8px 14px; border-radius: 14px; border: 1px solid #C9BFB8; background: #fff; color: #5C2B3E; font-weight: 600; min-height: 40px; }
+.cm-period-btn.active { background: #5C2B3E; color: #fff; border-color: #5C2B3E; }
+.cm-toast { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: #a32d2d; color: #fff; font-size: 14px; padding: 12px 16px; border-radius: 10px; z-index: 200; box-shadow: 0 4px 14px rgba(0,0,0,0.25); display: flex; align-items: center; gap: 10px; max-width: 90vw; }
+.cm-toast.success { background: #3d6b4a; }
+.cm-toast button { background: #fff; color: #a32d2d; border: none; border-radius: 6px; padding: 6px 12px; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+/* Auth screens */
+.cm-auth-wrap { padding: 40px 20px; max-width: 420px; margin: 0 auto; }
+.cm-auth-title { font-size: 24px; font-weight: 700; color: #5C2B3E; margin-bottom: 6px; }
+.cm-auth-sub { font-size: 14px; color: #8a8580; margin-bottom: 24px; }
+.cm-auth-toggle { text-align: center; margin-top: 16px; font-size: 14px; color: #6E6E6E; }
+.cm-auth-toggle button { background: none; border: none; color: #5C2B3E; font-weight: 700; text-decoration: underline; font-size: 14px; padding: 8px; }
+.cm-auth-error { background: #FCEBEB; color: #a32d2d; font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; }
+.cm-waiting-wrap { padding: 50px 20px; text-align: center; max-width: 460px; margin: 0 auto; }
+.cm-waiting-icon { font-size: 40px; margin-bottom: 12px; }
+.cm-uid-box { background: #F2EBE5; border-radius: 8px; padding: 12px; font-size: 13px; word-break: break-all; margin: 16px 0; font-family: monospace; }
+.cm-loading { padding: 60px 20px; text-align: center; color: #8a8580; font-size: 15px; }
+@media (max-width: 400px) {
+  .cm-title { font-size: 21px; }
+  .cm-role-btn { font-size: 13px; padding: 9px 13px; }
+}
+</style>
+</head>
+<body>
+<div id="cm-app"><div class="cm-loading">Cargando…</div></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import {
+    getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+    createUserWithEmailAndPassword, signOut
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection,
+    getDocs, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDAZqgKvoFMWWVgXb0Kq9AgrxlciaTeWUI",
+    authDomain: "cafemontesanto.firebaseapp.com",
+    projectId: "cafemontesanto",
+    storageBucket: "cafemontesanto.firebasestorage.app",
+    messagingSenderId: "48577291758",
+    appId: "1:48577291758:web:6d08db61998e4eb5151aff",
+    measurementId: "G-HLRY0ND5PJ"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window.__fbInstances = {
+    auth, db, doc, getDoc, setDoc, updateDoc, addDoc, collection, getDocs, serverTimestamp,
+    onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+  };
+  window.dispatchEvent(new Event("cm-fb-ready"));
+</script>
+
+<script>
+function fb(){ return window.__fbInstances; }
+
+(function(){
+  var ROLES = ["Encargado", "Cocina", "Barra", "Mesero", "Caja"];
+  var DAY_NAMES = ["Dom","Lun","Mar","Mié","Jué","Vie","Sáb"];
+  var DAY_NAMES_FULL = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  var MONTH_NAMES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  var OCC_LABELS = {first:"primer", second:"segundo", third:"tercer", fourth:"cuarto", last:"último"};
+
+  var state = {
+    user: null, staffDoc: null,
+    role: "Encargado", tab: "checklist",
+    templates: [], pedidos: [], staffList: [],
+    rotacionPeriod: "7", compCache: {},
+    authMode: "login"
+  };
+
+  function todayStr(d){ d=d||new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function formatDateEs(d){ return DAY_NAMES_FULL[d.getDay()]+", "+d.getDate()+" de "+MONTH_NAMES[d.getMonth()]+" de "+d.getFullYear(); }
+  function escapeHtml(s){ return (s||"").toString().replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
+  function appEl(){ return document.getElementById("cm-app"); }
+
+  function showToast(msg, opts){
+    opts = opts || {};
+    var existing = appEl().querySelector(".cm-toast");
+    if(existing) existing.remove();
+    var t = document.createElement("div");
+    t.className = "cm-toast" + (opts.success ? " success" : "");
+    var span = document.createElement("span"); span.textContent = msg; t.appendChild(span);
+    if(opts.retryFn){
+      var btn = document.createElement("button"); btn.textContent = "Reintentar";
+      btn.onclick = function(){ t.remove(); opts.retryFn(); };
+      t.appendChild(btn);
+    } else {
+      setTimeout(function(){ if(t.parentNode) t.remove(); }, 3200);
+    }
+    appEl().appendChild(t);
+  }
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+  async function withRetry(fn, label){
+    var delays = [400, 1200, 2500];
+    for(var i=0;i<=delays.length;i++){
+      try { return { ok:true, value: await fn() }; }
+      catch(e){
+        console.error(label+" failed", e);
+        if(i < delays.length) await sleep(delays[i]);
+        else return { ok:false, error:e };
+      }
+    }
+  }
+
+  function defaultTemplates(){
+    var mk = function(texto, rol, recurrencia, orden){ return {id: rol+"-"+orden+"-"+Date.now().toString(36), texto:texto, rol:rol, recurrencia:recurrencia, orden:orden}; };
+    return [
+      mk("Abrir el local y verificar seguridad (puertas, luces, alarma)", "Encargado", {type:"daily"}, 0),
+      mk("Revisar temperatura de refrigeradores y conservadoras", "Encargado", {type:"daily"}, 1),
+      mk("Recontar insumos de alta rotación (checkpoint de medio turno)", "Encargado", {type:"daily"}, 2),
+      mk("Revisar fecha y estado de insumos perecederos", "Cocina", {type:"daily"}, 0),
+      mk("Guardar y rotular insumos abiertos (FIFO)", "Cocina", {type:"daily"}, 1),
+      mk("Limpieza de baño", "Cocina", {type:"weekly", days:[2,4,6]}, 2),
+      mk("Revisar stock de leche y jarabes frente al consumo del día", "Barra", {type:"daily"}, 0),
+      mk("Limpieza a profundidad del área de trabajo", "Barra", {type:"weekly", days:[1]}, 1),
+      mk("Confirmar tiempos de preparación con cocina y barra antes de tomar nuevos pedidos", "Mesero", {type:"daily"}, 0),
+      mk("Dejar las mesas limpias y ordenadas entre clientes", "Mesero", {type:"daily"}, 1),
+      mk("Repasar el estado de menús y accesorios de mesa", "Mesero", {type:"weekly", days:[1]}, 2),
+      mk("Verificar caja chica y funcionamiento del POS", "Caja", {type:"daily"}, 0),
+      mk("Limpieza de baño", "Caja", {type:"weekly", days:[1,3,5]}, 1),
+      mk("Preparar facturas del mes para el contador", "Caja", {type:"monthly", occurrence:"last", weekday:1}, 2)
+    ];
+  }
+
+  function isDueToday(task, date){
+    var day = date.getDay();
+    if(day === 0) return false;
+    var r = task.recurrencia;
+    if(r.type === "daily") return true;
+    if(r.type === "weekly") return (r.days||[]).indexOf(day) !== -1;
+    if(r.type === "monthly"){
+      if(r.weekday !== day) return false;
+      var dateNum = date.getDate();
+      var daysInMonth = new Date(date.getFullYear(), date.getMonth()+1, 0).getDate();
+      if(r.occurrence === "last") return (dateNum+7) > daysInMonth;
+      var occMap = {first:1,second:2,third:3,fourth:4};
+      return Math.ceil(dateNum/7) === (occMap[r.occurrence]||1);
+    }
+    return false;
+  }
+  function recurrenceLabel(r){
+    if(r.type === "daily") return "Todos los días";
+    if(r.type === "weekly") return "Días: " + (r.days||[]).map(function(d){return DAY_NAMES[d];}).join(", ");
+    if(r.type === "monthly") return (OCC_LABELS[r.occurrence]||"") + " " + DAY_NAMES[r.weekday] + " de cada mes";
+    return "";
+  }
+  function isDone(entry){ return !!(entry && entry.done); }
+
+  /* ---------- DATA ACCESS (calls fb() directly at each site, no wrappers) ---------- */
+
+  async function loadTemplates(){
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_config", "checklist");
+      var snap = await fb().getDoc(ref);
+      return snap.exists() ? snap.data() : null;
+    }, "loadTemplates");
+    if(res.ok && res.value && res.value.templates){
+      state.templates = res.value.templates;
+    } else if(res.ok){
+      state.templates = defaultTemplates();
+      await saveTemplates();
+    } else {
+      state.templates = defaultTemplates();
+    }
+  }
+  async function saveTemplates(){
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_config", "checklist");
+      await fb().setDoc(ref, { templates: state.templates });
+    }, "saveTemplates");
+    if(!res.ok) showToast("No se pudo guardar el checklist.", { retryFn: async function(){ if(await saveTemplates()) renderChecklistTab(); } });
+    return res.ok;
+  }
+
+  async function getCompletions(dateStr, rol){
+    var key = dateStr + "_" + rol;
+    if(state.compCache[key]) return state.compCache[key];
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_completions", key);
+      var snap = await fb().getDoc(ref);
+      return snap.exists() ? snap.data() : {};
+    }, "getCompletions");
+    var data = res.ok ? (res.value || {}) : {};
+    state.compCache[key] = data;
+    return data;
+  }
+  async function setTaskCompletion(dateStr, rol, taskId, value){
+    var key = dateStr + "_" + rol;
+    var data = await getCompletions(dateStr, rol);
+    var prev = data[taskId];
+    data[taskId] = value ? {done:true, byUid: state.user.uid, byNombre: state.staffDoc.nombre, at: new Date().toISOString()} : {done:false, byUid:null, byNombre:null, at:null};
+    state.compCache[key] = data;
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_completions", key);
+      await fb().setDoc(ref, data);
+    }, "setTaskCompletion");
+    if(!res.ok){
+      showToast("No se pudo guardar la casilla.", { retryFn: async function(){ var ok = await setTaskCompletion(dateStr, rol, taskId, value); if(ok) renderChecklistTab(); } });
+      data[taskId] = prev;
+      state.compCache[key] = data;
+      return false;
+    }
+    return true;
+  }
+
+  async function loadPedidos(){
+    var res = await withRetry(async function(){
+      var col = fb().collection(fb().db, "operaciones_pedidos");
+      var snap = await fb().getDocs(col);
+      var list = [];
+      snap.forEach(function(d){ list.push(Object.assign({id: d.id}, d.data())); });
+      return list;
+    }, "loadPedidos");
+    state.pedidos = res.ok ? res.value : [];
+  }
+  async function createPedido(pedido){
+    var res = await withRetry(async function(){
+      var col = fb().collection(fb().db, "operaciones_pedidos");
+      var ref = await fb().addDoc(col, pedido);
+      return ref.id;
+    }, "createPedido");
+    if(!res.ok){ showToast("No se pudo registrar el pedido.", { retryFn: async function(){ var ok = await createPedido(pedido); if(ok) renderPedidosTab(); } }); return null; }
+    pedido.id = res.value;
+    state.pedidos.push(pedido);
+    return res.value;
+  }
+  async function updatePedido(id, patch){
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_pedidos", id);
+      await fb().updateDoc(ref, patch);
+    }, "updatePedido");
+    if(!res.ok){ showToast("No se pudo actualizar el pedido.", { retryFn: async function(){ var ok = await updatePedido(id, patch); if(ok) renderPedidosTab(); } }); return false; }
+    var p = state.pedidos.find(function(x){ return x.id === id; });
+    if(p) Object.assign(p, patch);
+    return true;
+  }
+
+  async function loadStaffList(){
+    var res = await withRetry(async function(){
+      var col = fb().collection(fb().db, "operaciones_staff");
+      var snap = await fb().getDocs(col);
+      var list = [];
+      snap.forEach(function(d){ list.push(Object.assign({uid: d.id}, d.data())); });
+      return list;
+    }, "loadStaffList");
+    state.staffList = res.ok ? res.value : [];
+  }
+  async function updateStaff(uid, patch){
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_staff", uid);
+      await fb().updateDoc(ref, patch);
+    }, "updateStaff");
+    if(!res.ok){ showToast("No se pudo guardar el cambio de personal.", { retryFn: async function(){ if(await updateStaff(uid, patch)){ await loadStaffList(); renderPersonalTab(); } } }); return false; }
+    return true;
+  }
+
+  /* ---------- AUTH SCREENS ---------- */
+
+  function renderLogin(){
+    var isSignup = state.authMode === "signup";
+    var html = '<div class="cm-header"><div class="cm-eyebrow">Café Montesanto</div><div class="cm-title">Operaciones diarias</div><div class="cm-sub">Acceso del equipo</div></div>';
+    html += '<div class="cm-auth-wrap">';
+    html += '<div class="cm-auth-title">' + (isSignup ? "Crear cuenta" : "Iniciar sesión") + '</div>';
+    html += '<div class="cm-auth-sub">' + (isSignup ? "Vas a poder usar la app en cuanto un socio active tu cuenta." : "Con el email y contraseña de tu cuenta del equipo.") + '</div>';
+    html += '<div id="cm-auth-error"></div>';
+    if(isSignup) html += '<div class="cm-field"><label>Tu nombre</label><input type="text" id="auth-nombre" placeholder="Ej: Carla Rojas"></div>';
+    html += '<div class="cm-field"><label>Email</label><input type="email" id="auth-email" autocomplete="username"></div>';
+    html += '<div class="cm-field"><label>Contraseña</label><input type="password" id="auth-pass" autocomplete="' + (isSignup?'new-password':'current-password') + '"></div>';
+    html += '<button class="cm-btn-primary" id="auth-submit">' + (isSignup ? "Crear cuenta" : "Entrar") + '</button>';
+    html += '<div class="cm-auth-toggle">' + (isSignup ? "¿Ya tenés cuenta?" : "¿Sos parte del equipo y no tenés cuenta?") + ' <button id="auth-toggle-btn">' + (isSignup ? "Iniciar sesión" : "Crear cuenta") + '</button></div>';
+    html += '</div>';
+    appEl().innerHTML = html;
+
+    document.getElementById("auth-toggle-btn").onclick = function(){ state.authMode = isSignup ? "login" : "signup"; renderLogin(); };
+    document.getElementById("auth-submit").onclick = async function(){
+      var email = document.getElementById("auth-email").value.trim();
+      var pass = document.getElementById("auth-pass").value;
+      var errEl = document.getElementById("cm-auth-error");
+      errEl.innerHTML = "";
+      if(!email || !pass){ errEl.innerHTML = '<div class="cm-auth-error">Completá email y contraseña.</div>'; return; }
+      try {
+        if(isSignup){
+          var nombre = document.getElementById("auth-nombre").value.trim();
+          if(!nombre){ errEl.innerHTML = '<div class="cm-auth-error">Escribí tu nombre.</div>'; return; }
+          var cred = await fb().createUserWithEmailAndPassword(fb().auth, email, pass);
+          var ref = fb().doc(fb().db, "operaciones_staff", cred.user.uid);
+          await fb().setDoc(ref, { nombre: nombre, email: email, rol: null, esSocio: false, activo: false, createdAt: fb().serverTimestamp() });
+          await boot();
+        } else {
+          await fb().signInWithEmailAndPassword(fb().auth, email, pass);
+        }
+      } catch(e){
+        errEl.innerHTML = '<div class="cm-auth-error">' + escapeHtml(traducirErrorAuth(e)) + '</div>';
+      }
+    };
+  }
+
+  function traducirErrorAuth(e){
+    var code = e && e.code || "";
+    if(code.indexOf("wrong-password") !== -1 || code.indexOf("invalid-credential") !== -1) return "Email o contraseña incorrectos.";
+    if(code.indexOf("user-not-found") !== -1) return "No existe una cuenta con ese email.";
+    if(code.indexOf("email-already-in-use") !== -1) return "Ya existe una cuenta con ese email — probá iniciar sesión.";
+    if(code.indexOf("weak-password") !== -1) return "La contraseña necesita al menos 6 caracteres.";
+    if(code.indexOf("invalid-email") !== -1) return "El email no es válido.";
+    return "No se pudo completar la acción. Intentá de nuevo.";
+  }
+
+  function renderWaiting(uid){
+    var html = '<div class="cm-header"><div class="cm-eyebrow">Café Montesanto</div><div class="cm-title">Operaciones diarias</div></div>';
+    html += '<div class="cm-waiting-wrap"><div class="cm-waiting-icon">⏳</div>';
+    html += '<h2 style="font-size:19px;margin-bottom:8px;">Tu cuenta está esperando activación</h2>';
+    html += '<p style="color:#6E6E6E;font-size:14px;line-height:1.5;">Un socio (Álvaro, Marcela o Paola) tiene que asignarte un puesto para que puedas entrar. Avisales que tu cuenta ya está creada.</p>';
+    html += '<div class="cm-uid-box">' + uid + '</div>';
+    html += '<button class="cm-btn-secondary" id="cm-recheck">Ya me activaron, revisar de nuevo</button>';
+    html += '<div style="margin-top:20px;"><button class="cm-logout-btn" id="cm-waiting-logout">Cerrar sesión</button></div></div>';
+    appEl().innerHTML = html;
+    document.getElementById("cm-recheck").onclick = function(){ boot(); };
+    document.getElementById("cm-waiting-logout").onclick = function(){ fb().signOut(fb().auth); };
+  }
+
+  function renderNoStaffDoc(uid){
+    var html = '<div class="cm-header"><div class="cm-eyebrow">Café Montesanto</div><div class="cm-title">Operaciones diarias</div></div>';
+    html += '<div class="cm-waiting-wrap"><div class="cm-waiting-icon">⚠️</div>';
+    html += '<h2 style="font-size:19px;margin-bottom:8px;">Cuenta no configurada</h2>';
+    html += '<p style="color:#6E6E6E;font-size:14px;line-height:1.5;">Esta cuenta existe en Firebase Authentication pero todavía no tiene un perfil en <code>operaciones_staff</code>. Si iniciaste sesión con la cuenta equivocada (por ejemplo, la de cajero de la tarjeta de fidelidad), cerrá sesión abajo y entrá o creá la cuenta correcta.</p>';
+    html += '<p style="color:#6E6E6E;font-size:14px;line-height:1.5;">Si sos el primer socio en entrar con esta cuenta, creá el documento manualmente en la consola de Firestore con este ID:</p>';
+    html += '<div class="cm-uid-box">' + uid + '</div>';
+    html += '<p style="color:#6E6E6E;font-size:13px;line-height:1.5;">Campos: <b>nombre</b> (texto), <b>rol</b> ("Encargado"), <b>esSocio</b> (true), <b>activo</b> (true).</p>';
+    html += '<button class="cm-btn-secondary" id="cm-recheck2">Ya lo creé, revisar de nuevo</button>';
+    html += '<div style="margin-top:20px;"><button class="cm-logout-btn" id="cm-nostaff-logout">Cerrar sesión</button></div></div>';
+    appEl().innerHTML = html;
+    document.getElementById("cm-recheck2").onclick = function(){ boot(); };
+    document.getElementById("cm-nostaff-logout").onclick = function(){ fb().signOut(fb().auth); };
+  }
+
+  /* ---------- MAIN APP ---------- */
+
+  function renderShell(){
+    var html = '<div class="cm-header"><div class="cm-eyebrow">Café Montesanto</div><div class="cm-title">Operaciones diarias</div><div class="cm-sub">Checklist y pedidos de insumos</div></div>';
+    html += '<div class="cm-user-bar"><div class="cm-user-info"><b>' + escapeHtml(state.staffDoc.nombre) + '</b>' + (state.staffDoc.esSocio ? '<span class="cm-badge-socio">Socio</span>' : '') + '</div><button class="cm-logout-btn" id="cm-logout">Cerrar sesión</button></div>';
+    html += '<div class="cm-roles" id="cm-roles"></div>';
+    html += '<div class="cm-tabs">';
+    html += '<button class="cm-tab active" data-tab="checklist" id="cm-tab-checklist">Checklist</button>';
+    html += '<button class="cm-tab" data-tab="pedidos" id="cm-tab-pedidos">Pedidos</button>';
+    if(state.staffDoc.esSocio) html += '<button class="cm-tab" data-tab="personal" id="cm-tab-personal">Personal</button>';
+    html += '</div>';
+    html += '<div class="cm-panel" id="cm-panel-checklist"></div>';
+    html += '<div class="cm-panel cm-hidden" id="cm-panel-pedidos"></div>';
+    html += '<div class="cm-panel cm-hidden" id="cm-panel-personal"></div>';
+    appEl().innerHTML = html;
+
+    document.getElementById("cm-logout").onclick = function(){ fb().signOut(fb().auth); };
+    ["checklist","pedidos","personal"].forEach(function(tabName){
+      var btn = document.getElementById("cm-tab-"+tabName);
+      if(!btn) return;
+      btn.onclick = function(){
+        state.tab = tabName;
+        ["checklist","pedidos","personal"].forEach(function(t){
+          var b = document.getElementById("cm-tab-"+t);
+          var p = document.getElementById("cm-panel-"+t);
+          if(b) b.className = "cm-tab" + (t===tabName ? " active" : "");
+          if(p) p.className = "cm-panel" + (t===tabName ? "" : " cm-hidden");
+        });
+        if(tabName === "personal") renderPersonalTab();
+      };
+    });
+
+    renderRoles();
+    renderChecklistTab();
+    renderPedidosTab();
+  }
+
+  function renderRoles(){
+    var el = document.getElementById("cm-roles");
+    el.innerHTML = "";
+    ROLES.forEach(function(r){
+      var btn = document.createElement("button");
+      btn.className = "cm-role-btn" + (state.role === r ? " active" : "");
+      btn.textContent = r;
+      btn.onclick = function(){ state.role = r; renderRoles(); renderChecklistTab(); renderPedidosTab(); };
+      el.appendChild(btn);
+    });
+  }
+
+  async function computeWeekProgress(rol, now){
+    var weekDates = [];
+    var base = new Date(now);
+    var backTo = base.getDay() === 0 ? 6 : base.getDay()-1;
+    base.setDate(base.getDate()-backTo);
+    for(var i=0;i<6;i++){ var d = new Date(base); d.setDate(base.getDate()+i); if(d<=now) weekDates.push(d); }
+    var totalDue=0, totalDone=0;
+    for(var wi=0; wi<weekDates.length; wi++){
+      var wd = weekDates[wi];
+      var wc = await getCompletions(todayStr(wd), rol);
+      var wdue = state.templates.filter(function(t){ return t.rol===rol && isDueToday(t, wd); });
+      totalDue += wdue.length;
+      wdue.forEach(function(t){ if(isDone(wc[t.id])) totalDone++; });
+    }
+    return {done: totalDone, due: totalDue};
+  }
+
+  async function renderChecklistTab(){
+    var panel = document.getElementById("cm-panel-checklist");
+    var now = new Date();
+    var dateStr = todayStr(now);
+    var comp = await getCompletions(dateStr, state.role);
+    var dueTasks = state.templates.filter(function(t){ return t.rol===state.role && isDueToday(t, now); }).sort(function(a,b){ return (a.orden||0)-(b.orden||0); });
+    var progress = await computeWeekProgress(state.role, now);
+    var pct = progress.due>0 ? Math.round((progress.done/progress.due)*100) : 0;
+
+    var html = '<div class="cm-date">' + formatDateEs(now) + '</div>';
+    html += '<div class="cm-progress-wrap"><div class="cm-progress-label">Esta semana (' + state.role + '): ' + progress.done + ' de ' + progress.due + ' tareas — ' + pct + '%</div><div class="cm-progress-track"><div class="cm-progress-fill" style="width:'+pct+'%"></div></div></div>';
+
+    if(dueTasks.length===0){
+      html += '<div class="cm-empty">No hay tareas asignadas a ' + state.role + ' para hoy.</div>';
+    } else {
+      dueTasks.forEach(function(t){
+        var entry = comp[t.id];
+        var done = isDone(entry);
+        html += '<div class="cm-task'+(done?' done':'')+'"><input type="checkbox" id="task-'+t.id+'" '+(done?'checked':'')+'>' +
+          '<label for="task-'+t.id+'">'+escapeHtml(t.texto) + (done && entry.byNombre ? '<span class="cm-by">hecho por '+escapeHtml(entry.byNombre)+'</span>' : '') + '</label></div>';
+      });
+    }
+
+    if(state.staffDoc.esSocio){
+      html += '<div class="cm-section-title">Editar checklist</div>';
+      html += '<div class="cm-section-note">Cambios aplican al puesto, no a una persona. Usá las flechas para fijar el orden del día.</div>';
+      html += '<div id="cm-tmpl-list"></div>';
+      html += '<div class="cm-card"><div class="cm-card-title">Agregar tarea</div>' +
+        '<div class="cm-field"><label>Descripción</label><input type="text" id="new-tmpl-texto" placeholder="Ej: Limpiar vitrina de postres"></div>' +
+        '<div class="cm-row"><div class="cm-field"><label>Puesto</label><select id="new-tmpl-rol">' + ROLES.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join("") + '</select></div>' +
+        '<div class="cm-field"><label>Frecuencia</label><select id="new-tmpl-tipo"><option value="daily">Todos los días</option><option value="weekly">Días específicos</option><option value="monthly">Mensual</option></select></div></div>' +
+        '<div id="new-tmpl-weekly" class="cm-field"><label>Días de la semana</label><div class="cm-weekday-picks">' + [1,2,3,4,5,6].map(function(d){return '<label><input type="checkbox" class="new-tmpl-day" value="'+d+'">'+DAY_NAMES[d]+'</label>';}).join("") + '</div></div>' +
+        '<div id="new-tmpl-monthly" class="cm-field cm-hidden"><div class="cm-row"><div><label>Ocurrencia</label><select id="new-tmpl-occ"><option value="first">Primer</option><option value="second">Segundo</option><option value="third">Tercer</option><option value="fourth">Cuarto</option><option value="last">Último</option></select></div><div><label>Día</label><select id="new-tmpl-weekday">'+[1,2,3,4,5,6].map(function(d){return '<option value="'+d+'">'+DAY_NAMES[d]+'</option>';}).join("")+'</select></div></div></div>' +
+        '<button class="cm-btn-primary" id="cm-add-tmpl">Agregar tarea</button></div>';
+    }
+
+    panel.innerHTML = html;
+
+    dueTasks.forEach(function(t){
+      document.getElementById("task-"+t.id).onchange = async function(){
+        var checkbox=this, newVal=checkbox.checked;
+        var row = checkbox.closest(".cm-task");
+        row.className = "cm-task"+(newVal?" done":"");
+        var ok = await setTaskCompletion(dateStr, state.role, t.id, newVal);
+        if(!ok){ checkbox.checked=!newVal; row.className="cm-task"+(!newVal?" done":""); }
+        renderChecklistTab();
+      };
+    });
+
+    if(state.staffDoc.esSocio){ renderTemplateAdmin(); bindAddTaskForm(); }
+  }
+
+  function bindAddTaskForm(){
+    var tipoSelect = document.getElementById("new-tmpl-tipo");
+    if(!tipoSelect) return;
+    tipoSelect.onchange = function(){
+      var v=this.value;
+      document.getElementById("new-tmpl-weekly").className = "cm-field"+(v==="weekly"?"":" cm-hidden");
+      document.getElementById("new-tmpl-monthly").className = "cm-field"+(v==="monthly"?"":" cm-hidden");
+    };
+    document.getElementById("cm-add-tmpl").onclick = async function(){
+      var texto = document.getElementById("new-tmpl-texto").value.trim();
+      if(!texto){ alert("Escribe una descripción para la tarea."); return; }
+      var rol = document.getElementById("new-tmpl-rol").value;
+      var tipo = document.getElementById("new-tmpl-tipo").value;
+      var recurrencia;
+      if(tipo==="daily") recurrencia={type:"daily"};
+      else if(tipo==="weekly"){
+        var days = Array.prototype.slice.call(document.querySelectorAll(".new-tmpl-day:checked")).map(function(c){return parseInt(c.value,10);});
+        if(days.length===0){ alert("Selecciona al menos un día."); return; }
+        recurrencia = {type:"weekly", days:days};
+      } else {
+        recurrencia = {type:"monthly", occurrence: document.getElementById("new-tmpl-occ").value, weekday: parseInt(document.getElementById("new-tmpl-weekday").value,10)};
+      }
+      var sameRole = state.templates.filter(function(t){ return t.rol===rol; });
+      var maxOrden = sameRole.reduce(function(m,t){ return Math.max(m,t.orden||0); }, -1);
+      state.templates.push({id: rol+"-"+Date.now().toString(36), texto:texto, rol:rol, recurrencia:recurrencia, orden:maxOrden+1});
+      await saveTemplates();
+      renderChecklistTab();
+    };
+  }
+
+  function renderTemplateAdmin(){
+    var el = document.getElementById("cm-tmpl-list");
+    if(!el) return;
+    el.innerHTML = "";
+    ROLES.forEach(function(rol){
+      var group = state.templates.filter(function(t){ return t.rol===rol; }).sort(function(a,b){ return (a.orden||0)-(b.orden||0); });
+      if(group.length===0) return;
+      var h = document.createElement("div"); h.className="cm-tmpl-group-title"; h.textContent=rol; el.appendChild(h);
+      group.forEach(function(t, idx){
+        var row = document.createElement("div"); row.className="cm-tmpl-row";
+        row.innerHTML = '<div class="cm-tmpl-info">'+escapeHtml(t.texto)+'<div class="cm-tmpl-rec">'+recurrenceLabel(t.recurrencia)+'</div></div>' +
+          '<div class="cm-tmpl-actions"><button class="cm-btn-icon" data-act="up">&uarr;</button><button class="cm-btn-icon" data-act="down">&darr;</button><button class="cm-btn-text" data-act="del">Eliminar</button></div>';
+        var up = row.querySelector('[data-act="up"]'), down = row.querySelector('[data-act="down"]');
+        if(idx===0) up.disabled=true;
+        if(idx===group.length-1) down.disabled=true;
+        up.onclick = function(){ moveTask(-1, group, idx); };
+        down.onclick = function(){ moveTask(1, group, idx); };
+        row.querySelector('[data-act="del"]').onclick = function(){
+          state.templates = state.templates.filter(function(x){ return x.id!==t.id; });
+          saveTemplates().then(renderChecklistTab);
+        };
+        el.appendChild(row);
+      });
+    });
+  }
+  async function moveTask(dir, group, idx){
+    var oi = idx+dir; if(oi<0||oi>=group.length) return;
+    var a=group[idx], b=group[oi]; var tmp=a.orden; a.orden=b.orden; b.orden=tmp;
+    await saveTemplates(); renderChecklistTab();
+  }
+
+  function renderPedidosTab(){
+    var panel = document.getElementById("cm-panel-pedidos");
+    var html = '<div class="cm-card"><div class="cm-card-title">Nuevo pedido — ' + state.role + '</div>' +
+      '<div class="cm-row"><div class="cm-field"><label>Insumo</label><input type="text" id="pd-insumo" placeholder="Ej: Leche"></div>' +
+      '<div class="cm-field"><label>Cantidad</label><input type="number" id="pd-cantidad" min="0" step="1" placeholder="Ej: 10"></div></div>' +
+      '<div class="cm-field"><label>Unidad (opcional)</label><input type="text" id="pd-unidad" placeholder="Ej: bolsas, kg, cajas"></div>' +
+      '<div class="cm-field"><label>Urgencia</label><select id="pd-urgencia"><option value="normal">Normal</option><option value="urgente">Urgente</option></select></div>' +
+      '<button class="cm-btn-primary" id="pd-submit">Registrar pedido</button></div>';
+
+    html += '<div class="cm-section-title">Pedidos pendientes — ' + state.role + '</div>';
+    var pendientes = state.pedidos.filter(function(p){ return p.rol===state.role && !p.completado; });
+    if(pendientes.length===0){ html += '<div class="cm-empty">No hay pedidos pendientes para ' + state.role + '.</div>'; }
+    else {
+      pendientes.slice().reverse().forEach(function(p){
+        html += '<div class="cm-pedido-row" data-pid="'+p.id+'"><div class="cm-pedido-info">'+escapeHtml(p.insumo)+' — '+p.cantidad+(p.unidad?(' '+escapeHtml(p.unidad)):'') +
+          (p.urgencia==="urgente" ? ' <span class="cm-badge-urgente">Urgente</span>' : '') +
+          '<div class="cm-pedido-meta">Pedido'+(p.solicitadoPorNombre?(' por '+escapeHtml(p.solicitadoPorNombre)):'')+' el '+p.fechaPedido+'</div></div>' +
+          '<button class="cm-btn-secondary pd-recibido" data-id="'+p.id+'">Marcar recibido</button></div>';
+      });
+    }
+
+    if(state.staffDoc.esSocio){
+      html += '<div class="cm-section-title">Todos los pedidos</div>';
+      html += '<div class="cm-section-note">Proveedor y fecha esperada solo visibles y editables acá.</div>';
+      html += '<div class="cm-table-scroll"><table class="cm-admin-table"><tr><th>Fecha</th><th>Puesto</th><th>Nombre</th><th>Insumo</th><th>Cant.</th><th>Urgencia</th><th>Proveedor</th><th>Recepción esp.</th><th>Estado</th></tr>';
+      state.pedidos.slice().reverse().forEach(function(p){
+        html += '<tr data-pid="'+p.id+'"><td>'+p.fechaPedido+'</td><td>'+p.rol+'</td><td>'+escapeHtml(p.solicitadoPorNombre||"")+'</td><td>'+escapeHtml(p.insumo)+'</td><td>'+p.cantidad+(p.unidad?(' '+escapeHtml(p.unidad)):'')+'</td>' +
+          '<td>'+p.urgencia+'</td><td><input type="text" class="pd-proveedor-input" data-id="'+p.id+'" value="'+escapeHtml(p.proveedor||"")+'" placeholder="Proveedor"></td>' +
+          '<td><input type="date" class="pd-fechaesp-input" data-id="'+p.id+'" value="'+(p.fechaRecepcionEsperada||"")+'"></td>' +
+          '<td>'+(p.completado ? ("Recibido "+(p.fechaRecibido||"")) : "Pendiente")+'</td></tr>';
+      });
+      html += '</table></div>';
+      html += '<div class="cm-section-title">Rotación de insumos</div>';
+      html += '<div class="cm-period-btns"><button class="cm-period-btn'+(state.rotacionPeriod==="7"?" active":"")+'" data-p="7">Últimos 7 días</button><button class="cm-period-btn'+(state.rotacionPeriod==="30"?" active":"")+'" data-p="30">Últimos 30 días</button><button class="cm-period-btn'+(state.rotacionPeriod==="all"?" active":"")+'" data-p="all">Todo</button></div>';
+      html += '<div id="cm-rotacion-chart"></div>';
+    }
+
+    panel.innerHTML = html;
+
+    document.getElementById("pd-submit").onclick = async function(){
+      var insumo = document.getElementById("pd-insumo").value.trim();
+      var cantidad = document.getElementById("pd-cantidad").value;
+      if(!insumo || !cantidad){ alert("Completa el insumo y la cantidad."); return; }
+      var pedido = {
+        insumo: insumo, cantidad: parseFloat(cantidad),
+        unidad: document.getElementById("pd-unidad").value.trim(),
+        urgencia: document.getElementById("pd-urgencia").value,
+        rol: state.role, solicitadoPorUid: state.user.uid, solicitadoPorNombre: state.staffDoc.nombre,
+        fechaPedido: todayStr(), fechaRecepcionEsperada: null, fechaRecibido: null, completado: false, proveedor: null
+      };
+      var id = await createPedido(pedido);
+      if(id) renderPedidosTab();
+    };
+
+    Array.prototype.slice.call(document.querySelectorAll(".pd-recibido")).forEach(function(btn){
+      btn.onclick = async function(){
+        var id = this.getAttribute("data-id");
+        var ok = await updatePedido(id, { completado:true, fechaRecibido: todayStr(), recibidoPorNombre: state.staffDoc.nombre });
+        if(ok) renderPedidosTab();
+      };
+    });
+
+    if(state.staffDoc.esSocio){
+      Array.prototype.slice.call(document.querySelectorAll(".pd-proveedor-input")).forEach(function(inp){
+        inp.onchange = function(){ updatePedido(inp.getAttribute("data-id"), { proveedor: inp.value }); };
+      });
+      Array.prototype.slice.call(document.querySelectorAll(".pd-fechaesp-input")).forEach(function(inp){
+        inp.onchange = function(){ updatePedido(inp.getAttribute("data-id"), { fechaRecepcionEsperada: inp.value }); };
+      });
+      Array.prototype.slice.call(document.querySelectorAll(".cm-period-btn")).forEach(function(btn){
+        btn.onclick = function(){ state.rotacionPeriod = this.getAttribute("data-p"); renderPedidosTab(); };
+      });
+      renderRotacion();
+    }
+  }
+
+  function renderRotacion(){
+    var el = document.getElementById("cm-rotacion-chart");
+    if(!el) return;
+    var now = new Date(); var cutoff = null;
+    if(state.rotacionPeriod==="7"){ cutoff=new Date(now); cutoff.setDate(cutoff.getDate()-7); }
+    else if(state.rotacionPeriod==="30"){ cutoff=new Date(now); cutoff.setDate(cutoff.getDate()-30); }
+    var totals = {};
+    state.pedidos.forEach(function(p){
+      if(cutoff && new Date(p.fechaPedido) < cutoff) return;
+      totals[p.insumo] = (totals[p.insumo]||0) + (p.cantidad||0);
+    });
+    var entries = Object.keys(totals).map(function(k){ return {insumo:k, total:totals[k]}; }).sort(function(a,b){ return b.total-a.total; });
+    if(entries.length===0){ el.innerHTML='<div class="cm-empty">Sin pedidos registrados en este periodo.</div>'; return; }
+    var max = entries[0].total, html="";
+    entries.forEach(function(e){
+      var pct = max>0 ? Math.round((e.total/max)*100) : 0;
+      html += '<div class="cm-rotacion-bar-wrap"><div class="cm-rotacion-label"><span>'+escapeHtml(e.insumo)+'</span><span>'+e.total+'</span></div><div class="cm-rotacion-track"><div class="cm-rotacion-fill" style="width:'+pct+'%"></div></div></div>';
+    });
+    el.innerHTML = html;
+  }
+
+  async function renderPersonalTab(){
+    var panel = document.getElementById("cm-panel-personal");
+    panel.innerHTML = '<div class="cm-empty">Cargando personal…</div>';
+    await loadStaffList();
+    var html = '<div class="cm-section-title">Personal</div>';
+    html += '<div class="cm-section-note">Asigná puesto y activá cuentas nuevas. Esto reemplaza cualquier código o clave — el acceso real lo controla esto.</div>';
+    html += '<div class="cm-table-scroll"><table class="cm-admin-table"><tr><th>Nombre</th><th>Email</th><th>Puesto</th><th>Socio</th><th>Activo</th></tr>';
+    state.staffList.forEach(function(s){
+      html += '<tr data-uid="'+s.uid+'"><td>'+escapeHtml(s.nombre||"")+'</td><td>'+escapeHtml(s.email||"")+'</td>' +
+        '<td><select class="staff-rol" data-uid="'+s.uid+'"><option value="">—</option>' + ROLES.map(function(r){return '<option value="'+r+'"'+(s.rol===r?' selected':'')+'>'+r+'</option>';}).join("") + '</select></td>' +
+        '<td><input type="checkbox" class="staff-socio" data-uid="'+s.uid+'" '+(s.esSocio?'checked':'')+'></td>' +
+        '<td><input type="checkbox" class="staff-activo" data-uid="'+s.uid+'" '+(s.activo?'checked':'')+'></td></tr>';
+    });
+    html += '</table></div>';
+    panel.innerHTML = html;
+
+    Array.prototype.slice.call(document.querySelectorAll(".staff-rol")).forEach(function(sel){
+      sel.onchange = function(){ updateStaff(this.getAttribute("data-uid"), { rol: this.value || null }); };
+    });
+    Array.prototype.slice.call(document.querySelectorAll(".staff-socio")).forEach(function(cb){
+      cb.onchange = function(){ updateStaff(this.getAttribute("data-uid"), { esSocio: this.checked }); };
+    });
+    Array.prototype.slice.call(document.querySelectorAll(".staff-activo")).forEach(function(cb){
+      cb.onchange = function(){ updateStaff(this.getAttribute("data-uid"), { activo: this.checked }); };
+    });
+  }
+
+  /* ---------- BOOT / AUTH STATE ---------- */
+
+  async function boot(){
+    appEl().innerHTML = '<div class="cm-loading">Cargando…</div>';
+    var user = fb().auth.currentUser;
+    if(!user){ renderLogin(); return; }
+    state.user = user;
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_staff", user.uid);
+      var snap = await fb().getDoc(ref);
+      return snap.exists() ? snap.data() : null;
+    }, "loadStaffDoc");
+    if(!res.ok){ showToast("No se pudo cargar tu perfil. Reintentando puede ayudar.", { retryFn: boot }); return; }
+    if(!res.value){ renderNoStaffDoc(user.uid); return; }
+    state.staffDoc = res.value;
+    if(!state.staffDoc.activo || !state.staffDoc.rol){ renderWaiting(user.uid); return; }
+    state.role = ROLES.indexOf(state.staffDoc.rol) !== -1 ? state.staffDoc.rol : ROLES[0];
+    await loadTemplates();
+    await loadPedidos();
+    renderShell();
+  }
+
+  window.addEventListener("cm-fb-ready", function(){
+    fb().onAuthStateChanged(fb().auth, function(user){
+      state.compCache = {};
+      if(user){ boot(); } else { state.user=null; state.staffDoc=null; renderLogin(); }
+    });
+  });
+})();
+</script>
+</body>
+</html>
