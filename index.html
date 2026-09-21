@@ -161,11 +161,23 @@ function fb(){ return window.__fbInstances; }
     role: "Encargado", tab: "checklist",
     templates: [], pedidos: [], staffList: [],
     rotacionPeriod: "7", compCache: {},
-    authMode: "login"
+    authMode: "login",
+    finConceptos: [], finViewMes: null
   };
 
   function todayStr(d){ d=d||new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function formatDateEs(d){ return DAY_NAMES_FULL[d.getDay()]+", "+d.getDate()+" de "+MONTH_NAMES[d.getMonth()]+" de "+d.getFullYear(); }
+  function bs(n){ n = Number(n)||0; return "Bs " + n.toLocaleString('es-BO', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+  function mesStr(d){ d=d||new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+  function mesLabel(mesStrVal){
+    var parts = mesStrVal.split("-"); var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+    return MONTH_NAMES[m-1] + " de " + y;
+  }
+  // 23:59:59 Bolivia time (UTC-4, fixed, no DST) for a given YYYY-MM-DD, as a JS Date usable as a Firestore Timestamp source
+  function finDelDiaBolivia(fechaStr){
+    var p = fechaStr.split("-").map(function(x){return parseInt(x,10);});
+    return new Date(Date.UTC(p[0], p[1]-1, p[2]+1, 3, 59, 59));
+  }
   function escapeHtml(s){ return (s||"").toString().replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
   function appEl(){ return document.getElementById("cm-app"); }
 
@@ -351,6 +363,352 @@ function fb(){ return window.__fbInstances; }
     return true;
   }
 
+  /* ---------- FINANZAS: data access ---------- */
+
+  async function loadConceptosFijos(){
+    var res = await withRetry(async function(){
+      var col = fb().collection(fb().db, "operaciones_finanzas_conceptos");
+      var snap = await fb().getDocs(col);
+      var list = [];
+      snap.forEach(function(d){ list.push(Object.assign({id:d.id}, d.data())); });
+      return list;
+    }, "loadConceptosFijos");
+    if(res.ok && res.value.length>0){ state.finConceptos = res.value.sort(function(a,b){ return (a.orden||0)-(b.orden||0); }); return; }
+    if(res.ok && res.value.length===0){
+      var defaults = ["Alquiler","Luz","Agua","Expensas","Internet","Sueldos"];
+      state.finConceptos = [];
+      for(var i=0;i<defaults.length;i++){
+        var r2 = await withRetry(async function(){
+          var col = fb().collection(fb().db, "operaciones_finanzas_conceptos");
+          var ref = await fb().addDoc(col, { nombre: defaults[i], orden: i });
+          return ref.id;
+        }, "seedConcepto");
+        if(r2.ok) state.finConceptos.push({id:r2.value, nombre:defaults[i], orden:i});
+      }
+      return;
+    }
+    state.finConceptos = [];
+  }
+  async function addConceptoFijo(nombre){
+    var maxOrden = state.finConceptos.reduce(function(m,c){ return Math.max(m,c.orden||0); }, -1);
+    var res = await withRetry(async function(){
+      var col = fb().collection(fb().db, "operaciones_finanzas_conceptos");
+      var ref = await fb().addDoc(col, { nombre: nombre, orden: maxOrden+1 });
+      return ref.id;
+    }, "addConceptoFijo");
+    if(!res.ok){ showToast("No se pudo agregar el concepto.", { retryFn: function(){ addConceptoFijo(nombre).then(renderFinanzasTab); } }); return; }
+    state.finConceptos.push({id:res.value, nombre:nombre, orden:maxOrden+1});
+  }
+  async function deleteConceptoFijo(id){
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_finanzas_conceptos", id);
+      await fb().updateDoc(ref, { eliminado: true });
+    }, "deleteConceptoFijo");
+    if(res.ok) state.finConceptos = state.finConceptos.filter(function(c){ return c.id!==id; });
+  }
+
+  async function loadIngresoDia(fecha){
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_finanzas_ingresos", fecha);
+      var snap = await fb().getDoc(ref);
+      return snap.exists() ? snap.data() : null;
+    }, "loadIngresoDia");
+    return res.ok ? res.value : null;
+  }
+  async function guardarIngresoDia(fecha, efectivo, qr, tarjeta, esNuevo){
+    var payload = {
+      fecha: fecha, efectivo: efectivo, qr: qr, tarjeta: tarjeta,
+      registradoPorUid: state.user.uid, registradoPorNombre: state.staffDoc.nombre
+    };
+    var res;
+    if(esNuevo){
+      payload.cierraEn = finDelDiaBolivia(fecha);
+      payload.creadoEn = fb().serverTimestamp();
+      res = await withRetry(async function(){
+        var ref = fb().doc(fb().db, "operaciones_finanzas_ingresos", fecha);
+        await fb().setDoc(ref, payload);
+      }, "guardarIngresoDia-new");
+    } else {
+      payload.actualizadoEn = fb().serverTimestamp();
+      res = await withRetry(async function(){
+        var ref = fb().doc(fb().db, "operaciones_finanzas_ingresos", fecha);
+        await fb().updateDoc(ref, payload);
+      }, "guardarIngresoDia-update");
+    }
+    if(!res.ok){ showToast("No se pudo guardar el cierre de caja.", { retryFn: function(){ guardarIngresoDia(fecha, efectivo, qr, tarjeta, esNuevo).then(renderFinanzasTab); } }); return false; }
+    return true;
+  }
+
+  async function loadIngresosTodos(){
+    var res = await withRetry(async function(){
+      var col = fb().collection(fb().db, "operaciones_finanzas_ingresos");
+      var snap = await fb().getDocs(col);
+      var list = [];
+      snap.forEach(function(d){ list.push(d.data()); });
+      return list;
+    }, "loadIngresosTodos");
+    return res.ok ? res.value : [];
+  }
+  async function loadGastosTodos(){
+    var res = await withRetry(async function(){
+      var col = fb().collection(fb().db, "operaciones_finanzas_gastos");
+      var snap = await fb().getDocs(col);
+      var list = [];
+      snap.forEach(function(d){ list.push(Object.assign({id:d.id}, d.data())); });
+      return list;
+    }, "loadGastosTodos");
+    return res.ok ? res.value : [];
+  }
+  async function addGasto(gasto){
+    var res = await withRetry(async function(){
+      var col = fb().collection(fb().db, "operaciones_finanzas_gastos");
+      var ref = await fb().addDoc(col, gasto);
+      return ref.id;
+    }, "addGasto");
+    if(!res.ok){ showToast("No se pudo registrar el gasto.", { retryFn: function(){ addGasto(gasto).then(renderFinanzasTab); } }); return null; }
+    return res.value;
+  }
+  async function deleteGasto(id){
+    var res = await withRetry(async function(){
+      var ref = fb().doc(fb().db, "operaciones_finanzas_gastos", id);
+      await fb().updateDoc(ref, { eliminado: true });
+    }, "deleteGasto");
+    return res.ok;
+  }
+
+  /* ---------- FINANZAS: rendering ---------- */
+
+  async function renderFinanzasTab(){
+    var panel = document.getElementById("cm-panel-finanzas");
+    panel.innerHTML = '<div class="cm-empty">Cargando…</div>';
+
+    var hoy = todayStr();
+    var cierreHoyHtml = "";
+    if(state.role === "Caja"){
+      var ingresoHoy = await loadIngresoDia(hoy);
+      var cerrado = ingresoHoy && new Date() > new Date(ingresoHoy.cierraEn.toDate ? ingresoHoy.cierraEn.toDate() : ingresoHoy.cierraEn);
+      cierreHoyHtml = renderCierreCajaCard(hoy, ingresoHoy, cerrado);
+    }
+
+    if(!state.staffDoc.esSocio){
+      var html = cierreHoyHtml;
+      if(!html) html = '<div class="cm-empty">Esta sección es solo para socios.</div>';
+      panel.innerHTML = html;
+      bindCierreCajaForm(hoy);
+      return;
+    }
+
+    if(!state.finViewMes) state.finViewMes = mesStr();
+    await loadConceptosFijos();
+    var ingresos = await loadIngresosTodos();
+    var gastos = (await loadGastosTodos()).filter(function(g){ return !g.eliminado; });
+
+    var mesActual = state.finViewMes;
+    var ingresosMes = ingresos.filter(function(i){ return i.fecha && i.fecha.indexOf(mesActual)===0; });
+    var gastosMes = gastos.filter(function(g){ return (g.tipo==="fijo" ? g.mesAplicable : g.fecha) && (g.tipo==="fijo" ? g.mesAplicable : g.fecha).indexOf(mesActual)===0; });
+
+    var totalEfectivo=0, totalQr=0, totalTarjeta=0;
+    ingresosMes.forEach(function(i){ totalEfectivo+=i.efectivo||0; totalQr+=i.qr||0; totalTarjeta+=i.tarjeta||0; });
+    var totalIngresos = totalEfectivo+totalQr+totalTarjeta;
+
+    var totalGastos = gastosMes.reduce(function(s,g){ return s+(g.monto||0); }, 0);
+    var totalFijos = gastosMes.filter(function(g){return g.tipo==="fijo";}).reduce(function(s,g){return s+(g.monto||0);},0);
+    var totalVariables = totalGastos-totalFijos;
+    var utilidad = totalIngresos - totalGastos;
+
+    var conceptosCargados = {};
+    gastosMes.filter(function(g){return g.tipo==="fijo";}).forEach(function(g){ conceptosCargados[g.categoria]=true; });
+    var conceptosPendientes = state.finConceptos.filter(function(c){ return !c.eliminado && !conceptosCargados[c.nombre]; });
+
+    var gastosPorCategoria = {};
+    gastosMes.forEach(function(g){ gastosPorCategoria[g.categoria] = (gastosPorCategoria[g.categoria]||0) + (g.monto||0); });
+
+    var html = cierreHoyHtml;
+
+    html += '<div class="cm-section-title">Resumen — <span id="cm-fin-mes-label">'+mesLabel(mesActual)+'</span></div>';
+    html += '<div class="cm-row" style="margin-bottom:10px;">' +
+      '<button class="cm-btn-secondary" id="cm-fin-mes-prev">&larr; Mes anterior</button>' +
+      '<button class="cm-btn-secondary" id="cm-fin-mes-next">Mes siguiente &rarr;</button></div>';
+
+    html += '<div class="cm-card"><div class="cm-row">' +
+      '<div><div class="cm-tmpl-rec">Ingresos</div><div style="font-size:20px;font-weight:700;">'+bs(totalIngresos)+'</div></div>' +
+      '<div><div class="cm-tmpl-rec">Gastos</div><div style="font-size:20px;font-weight:700;">'+bs(totalGastos)+'</div></div>' +
+      '<div><div class="cm-tmpl-rec">Utilidad</div><div style="font-size:20px;font-weight:700;">'+bs(utilidad)+'</div></div>' +
+      '</div></div>';
+
+    html += '<div class="cm-card-title" style="margin-top:6px;">Ingresos por método de pago</div>';
+    [["Efectivo",totalEfectivo],["QR",totalQr],["Tarjeta",totalTarjeta]].forEach(function(row){
+      var pct = totalIngresos>0 ? Math.round((row[1]/totalIngresos)*100) : 0;
+      html += '<div class="cm-rotacion-bar-wrap"><div class="cm-rotacion-label"><span>'+row[0]+'</span><span>'+bs(row[1])+' ('+pct+'%)</span></div><div class="cm-rotacion-track"><div class="cm-rotacion-fill" style="width:'+pct+'%"></div></div></div>';
+    });
+
+    html += '<div class="cm-card-title" style="margin-top:18px;">Gastos por categoría</div>';
+    var catEntries = Object.keys(gastosPorCategoria).map(function(k){return {cat:k, total:gastosPorCategoria[k]};}).sort(function(a,b){return b.total-a.total;});
+    if(catEntries.length===0) html += '<div class="cm-empty">Sin gastos cargados este mes.</div>';
+    catEntries.forEach(function(e){
+      var pct = totalGastos>0 ? Math.round((e.total/totalGastos)*100) : 0;
+      html += '<div class="cm-rotacion-bar-wrap"><div class="cm-rotacion-label"><span>'+escapeHtml(e.cat)+'</span><span>'+bs(e.total)+' ('+pct+'%)</span></div><div class="cm-rotacion-track"><div class="cm-rotacion-fill" style="width:'+pct+'%"></div></div></div>';
+    });
+    html += '<div class="cm-section-note">Fijos: '+bs(totalFijos)+' · Variables: '+bs(totalVariables)+'</div>';
+
+    if(conceptosPendientes.length>0){
+      html += '<div class="cm-card-title" style="margin-top:18px;">Gastos fijos pendientes de cargar este mes</div>';
+      conceptosPendientes.forEach(function(c){
+        html += '<div class="cm-row" style="align-items:flex-end;margin-bottom:10px;">' +
+          '<div class="cm-field" style="margin-bottom:0;"><label>'+escapeHtml(c.nombre)+'</label><input type="number" min="0" step="0.01" class="fin-pendiente-monto" data-concepto="'+escapeHtml(c.nombre)+'" placeholder="Monto"></div>' +
+          '<button class="cm-btn-secondary fin-pendiente-btn" data-concepto="'+escapeHtml(c.nombre)+'">Cargar</button></div>';
+      });
+    }
+
+    html += '<div class="cm-card"><div class="cm-card-title">Agregar gasto</div>' +
+      '<div class="cm-field"><label>Tipo</label><select id="fin-gasto-tipo"><option value="variable">Variable</option><option value="fijo">Fijo (mes: '+mesLabel(mesActual)+')</option></select></div>' +
+      '<div id="fin-gasto-fijo-wrap" class="cm-field cm-hidden"><label>Concepto</label><select id="fin-gasto-concepto">' + state.finConceptos.filter(function(c){return !c.eliminado;}).map(function(c){return '<option value="'+escapeHtml(c.nombre)+'">'+escapeHtml(c.nombre)+'</option>';}).join("") + '</select></div>' +
+      '<div id="fin-gasto-variable-wrap"><div class="cm-field"><label>Categoría</label><input type="text" id="fin-gasto-categoria" placeholder="Ej: Insumos, Mantenimiento"></div>' +
+      '<div class="cm-field"><label>Detalle</label><input type="text" id="fin-gasto-detalle" placeholder="Ej: Compra de leche y café en grano"></div></div>' +
+      '<div class="cm-row"><div class="cm-field"><label>Monto</label><input type="number" min="0" step="0.01" id="fin-gasto-monto"></div>' +
+      '<div class="cm-field"><label>Fecha</label><input type="date" id="fin-gasto-fecha" value="'+todayStr()+'"></div></div>' +
+      '<button class="cm-btn-primary" id="fin-gasto-submit">Registrar gasto</button></div>';
+
+    html += '<div class="cm-card-title" style="margin-top:18px;">Gastos de '+mesLabel(mesActual)+'</div>';
+    if(gastosMes.length===0) html += '<div class="cm-empty">Sin gastos registrados.</div>';
+    gastosMes.slice().sort(function(a,b){ return (b.fecha||"").localeCompare(a.fecha||""); }).forEach(function(g){
+      html += '<div class="cm-pedido-row"><div class="cm-pedido-info">'+escapeHtml(g.categoria)+' — '+bs(g.monto)+
+        (g.detalle ? '<div class="cm-pedido-meta">'+escapeHtml(g.detalle)+'</div>' : '') +
+        '<div class="cm-pedido-meta">'+(g.tipo==="fijo"?"Fijo":"Variable")+' · '+(g.fecha||g.mesAplicable)+' · '+escapeHtml(g.registradoPorNombre||"")+'</div></div>' +
+        '<button class="cm-btn-text fin-del-gasto" data-id="'+g.id+'">Eliminar</button></div>';
+    });
+
+    html += '<div class="cm-card-title" style="margin-top:18px;">Historial de cierres de caja — '+mesLabel(mesActual)+'</div>';
+    if(ingresosMes.length===0) html += '<div class="cm-empty">Sin cierres registrados este mes.</div>';
+    else {
+      html += '<div class="cm-table-scroll"><table class="cm-admin-table"><tr><th>Fecha</th><th>Efectivo</th><th>QR</th><th>Tarjeta</th><th>Total</th><th>Registrado por</th></tr>';
+      ingresosMes.slice().sort(function(a,b){return (b.fecha||"").localeCompare(a.fecha||"");}).forEach(function(i){
+        var tot=(i.efectivo||0)+(i.qr||0)+(i.tarjeta||0);
+        html += '<tr><td>'+i.fecha+'</td><td>'+bs(i.efectivo)+'</td><td>'+bs(i.qr)+'</td><td>'+bs(i.tarjeta)+'</td><td>'+bs(tot)+'</td><td>'+escapeHtml(i.registradoPorNombre||"")+'</td></tr>';
+      });
+      html += '</table></div>';
+    }
+
+    html += '<div class="cm-section-title">Conceptos de gastos fijos</div>';
+    html += '<div id="fin-conceptos-list"></div>';
+    html += '<div class="cm-row"><div class="cm-field" style="margin-bottom:0;"><input type="text" id="fin-nuevo-concepto" placeholder="Nuevo concepto (ej: Mantenimiento)"></div><button class="cm-btn-secondary" id="fin-add-concepto">Agregar</button></div>';
+
+    panel.innerHTML = html;
+    bindCierreCajaForm(hoy);
+    bindFinanzasSocioForm(mesActual);
+  }
+
+  function renderCierreCajaCard(fecha, ingreso, cerrado){
+    var html = '<div class="cm-card"><div class="cm-card-title">Cierre de caja — hoy ('+fecha+')</div>';
+    if(cerrado){
+      html += '<div class="cm-section-note">El cierre de hoy ya está bloqueado (pasadas las 23:59) y no se puede modificar.</div>';
+      html += '<div class="cm-row"><div><div class="cm-tmpl-rec">Efectivo</div>'+bs(ingreso.efectivo)+'</div><div><div class="cm-tmpl-rec">QR</div>'+bs(ingreso.qr)+'</div><div><div class="cm-tmpl-rec">Tarjeta</div>'+bs(ingreso.tarjeta)+'</div></div>';
+    } else {
+      html += '<div class="cm-section-note">'+(ingreso ? "Podés corregirlo hasta las 23:59 de hoy." : "Cargalo antes de cerrar el turno.")+'</div>';
+      html += '<div class="cm-field"><label>Efectivo</label><input type="number" min="0" step="0.01" id="cierre-efectivo" value="'+(ingreso?ingreso.efectivo:"")+'"></div>';
+      html += '<div class="cm-field"><label>QR</label><input type="number" min="0" step="0.01" id="cierre-qr" value="'+(ingreso?ingreso.qr:"")+'"></div>';
+      html += '<div class="cm-field"><label>Tarjeta</label><input type="number" min="0" step="0.01" id="cierre-tarjeta" value="'+(ingreso?ingreso.tarjeta:"")+'"></div>';
+      html += '<button class="cm-btn-primary" id="cierre-submit">'+(ingreso ? "Actualizar cierre de hoy" : "Guardar cierre de hoy")+'</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function bindCierreCajaForm(fecha){
+    var btn = document.getElementById("cierre-submit");
+    if(!btn) return;
+    var esNuevo = btn.textContent.indexOf("Guardar")===0;
+    btn.onclick = async function(){
+      var ef = parseFloat(document.getElementById("cierre-efectivo").value)||0;
+      var qr = parseFloat(document.getElementById("cierre-qr").value)||0;
+      var ta = parseFloat(document.getElementById("cierre-tarjeta").value)||0;
+      var ok = await guardarIngresoDia(fecha, ef, qr, ta, esNuevo);
+      if(ok){ showToast("Cierre de caja guardado.", {success:true}); renderFinanzasTab(); }
+    };
+  }
+
+  function bindFinanzasSocioForm(mesActual){
+    document.getElementById("cm-fin-mes-prev").onclick = function(){
+      var p = state.finViewMes.split("-").map(function(x){return parseInt(x,10);});
+      var d = new Date(p[0], p[1]-2, 1);
+      state.finViewMes = mesStr(d);
+      renderFinanzasTab();
+    };
+    document.getElementById("cm-fin-mes-next").onclick = function(){
+      var p = state.finViewMes.split("-").map(function(x){return parseInt(x,10);});
+      var d = new Date(p[0], p[1], 1);
+      state.finViewMes = mesStr(d);
+      renderFinanzasTab();
+    };
+
+    var tipoSel = document.getElementById("fin-gasto-tipo");
+    tipoSel.onchange = function(){
+      var esFijo = this.value==="fijo";
+      document.getElementById("fin-gasto-fijo-wrap").className = "cm-field"+(esFijo?"":" cm-hidden");
+      document.getElementById("fin-gasto-variable-wrap").className = esFijo?"cm-hidden":"";
+    };
+
+    document.getElementById("fin-gasto-submit").onclick = async function(){
+      var tipo = tipoSel.value;
+      var monto = parseFloat(document.getElementById("fin-gasto-monto").value);
+      if(!monto || monto<=0){ alert("Ingresá un monto válido."); return; }
+      var fecha = document.getElementById("fin-gasto-fecha").value || todayStr();
+      var gasto = { tipo:tipo, monto:monto, fecha:fecha, registradoPorUid:state.user.uid, registradoPorNombre:state.staffDoc.nombre, creadoEn: fb().serverTimestamp() };
+      if(tipo==="fijo"){
+        gasto.categoria = document.getElementById("fin-gasto-concepto").value;
+        gasto.mesAplicable = mesActual;
+        gasto.detalle = "";
+      } else {
+        gasto.categoria = document.getElementById("fin-gasto-categoria").value.trim() || "Otro";
+        gasto.detalle = document.getElementById("fin-gasto-detalle").value.trim();
+      }
+      var id = await addGasto(gasto);
+      if(id) renderFinanzasTab();
+    };
+
+    Array.prototype.slice.call(document.querySelectorAll(".fin-pendiente-btn")).forEach(function(btn){
+      btn.onclick = async function(){
+        var cat = this.getAttribute("data-concepto");
+        var input = document.querySelector('.fin-pendiente-monto[data-concepto="'+CSS.escape(cat)+'"]');
+        var monto = parseFloat(input.value);
+        if(!monto || monto<=0){ alert("Ingresá un monto válido."); return; }
+        var id = await addGasto({ tipo:"fijo", categoria:cat, mesAplicable:mesActual, monto:monto, detalle:"", registradoPorUid:state.user.uid, registradoPorNombre:state.staffDoc.nombre, creadoEn: fb().serverTimestamp() });
+        if(id) renderFinanzasTab();
+      };
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll(".fin-del-gasto")).forEach(function(btn){
+      btn.onclick = async function(){
+        if(!confirm("¿Eliminar este gasto?")) return;
+        var ok = await deleteGasto(this.getAttribute("data-id"));
+        if(ok) renderFinanzasTab();
+      };
+    });
+
+    renderConceptosList();
+    document.getElementById("fin-add-concepto").onclick = async function(){
+      var nombre = document.getElementById("fin-nuevo-concepto").value.trim();
+      if(!nombre) return;
+      await addConceptoFijo(nombre);
+      document.getElementById("fin-nuevo-concepto").value = "";
+      renderConceptosList();
+      renderFinanzasTab();
+    };
+  }
+
+  function renderConceptosList(){
+    var el = document.getElementById("fin-conceptos-list");
+    if(!el) return;
+    el.innerHTML = "";
+    state.finConceptos.filter(function(c){return !c.eliminado;}).forEach(function(c){
+      var row = document.createElement("div");
+      row.className = "cm-tmpl-row";
+      row.innerHTML = '<div class="cm-tmpl-info">'+escapeHtml(c.nombre)+'</div><button class="cm-btn-text">Eliminar</button>';
+      row.querySelector("button").onclick = function(){ deleteConceptoFijo(c.id).then(function(){ renderConceptosList(); renderFinanzasTab(); }); };
+      el.appendChild(row);
+    });
+  }
+
   /* ---------- AUTH SCREENS ---------- */
 
   function renderLogin(){
@@ -439,26 +797,29 @@ function fb(){ return window.__fbInstances; }
     html += '<div class="cm-tabs">';
     html += '<button class="cm-tab active" data-tab="checklist" id="cm-tab-checklist">Checklist</button>';
     html += '<button class="cm-tab" data-tab="pedidos" id="cm-tab-pedidos">Pedidos</button>';
+    html += '<button class="cm-tab" data-tab="finanzas" id="cm-tab-finanzas">Finanzas</button>';
     if(state.staffDoc.esSocio) html += '<button class="cm-tab" data-tab="personal" id="cm-tab-personal">Personal</button>';
     html += '</div>';
     html += '<div class="cm-panel" id="cm-panel-checklist"></div>';
     html += '<div class="cm-panel cm-hidden" id="cm-panel-pedidos"></div>';
+    html += '<div class="cm-panel cm-hidden" id="cm-panel-finanzas"></div>';
     html += '<div class="cm-panel cm-hidden" id="cm-panel-personal"></div>';
     appEl().innerHTML = html;
 
     document.getElementById("cm-logout").onclick = function(){ fb().signOut(fb().auth); };
-    ["checklist","pedidos","personal"].forEach(function(tabName){
+    ["checklist","pedidos","finanzas","personal"].forEach(function(tabName){
       var btn = document.getElementById("cm-tab-"+tabName);
       if(!btn) return;
       btn.onclick = function(){
         state.tab = tabName;
-        ["checklist","pedidos","personal"].forEach(function(t){
+        ["checklist","pedidos","finanzas","personal"].forEach(function(t){
           var b = document.getElementById("cm-tab-"+t);
           var p = document.getElementById("cm-panel-"+t);
           if(b) b.className = "cm-tab" + (t===tabName ? " active" : "");
           if(p) p.className = "cm-panel" + (t===tabName ? "" : " cm-hidden");
         });
         if(tabName === "personal") renderPersonalTab();
+        if(tabName === "finanzas") renderFinanzasTab();
       };
     });
 
