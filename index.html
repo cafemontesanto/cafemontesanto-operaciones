@@ -525,6 +525,15 @@ function fb(){ return window.__fbInstances; }
 
     var html = cierreHoyHtml;
 
+    var ayer = new Date(); ayer.setDate(ayer.getDate()-1);
+    html += '<div class="cm-card"><div class="cm-card-title">Cargar cierre de un día anterior</div>' +
+      '<div class="cm-section-note">Solo para días que todavía no tengan un cierre cargado — no se puede sobrescribir uno ya existente.</div>' +
+      '<div class="cm-field"><label>Fecha</label><input type="date" id="hist-fecha" max="'+todayStr(ayer)+'"></div>' +
+      '<div class="cm-row"><div class="cm-field"><label>Efectivo</label><input type="number" min="0" step="0.01" id="hist-efectivo"></div>' +
+      '<div class="cm-field"><label>QR</label><input type="number" min="0" step="0.01" id="hist-qr"></div>' +
+      '<div class="cm-field"><label>Tarjeta</label><input type="number" min="0" step="0.01" id="hist-tarjeta"></div></div>' +
+      '<button class="cm-btn-primary" id="hist-submit">Cargar cierre histórico</button></div>';
+
     html += '<div class="cm-section-title">Resumen — <span id="cm-fin-mes-label">'+mesLabel(mesActual)+'</span></div>';
     html += '<div class="cm-row" style="margin-bottom:10px;">' +
       '<button class="cm-btn-secondary" id="cm-fin-mes-prev">&larr; Mes anterior</button>' +
@@ -628,6 +637,19 @@ function fb(){ return window.__fbInstances; }
   }
 
   function bindFinanzasSocioForm(mesActual){
+    document.getElementById("hist-submit").onclick = async function(){
+      var fecha = document.getElementById("hist-fecha").value;
+      if(!fecha){ alert("Elegí una fecha."); return; }
+      if(fecha >= todayStr()){ alert("Solo se pueden cargar días anteriores a hoy."); return; }
+      var ef = parseFloat(document.getElementById("hist-efectivo").value)||0;
+      var qr = parseFloat(document.getElementById("hist-qr").value)||0;
+      var ta = parseFloat(document.getElementById("hist-tarjeta").value)||0;
+      var existente = await loadIngresoDia(fecha);
+      if(existente){ alert("Ya existe un cierre cargado para el "+fecha+". No se puede sobrescribir — si hay un error, avisale a otro socio para revisarlo directamente en Firestore."); return; }
+      var ok = await guardarIngresoDia(fecha, ef, qr, ta, true);
+      if(ok){ showToast("Cierre histórico cargado.", {success:true}); state.finViewMes = fecha.slice(0,7); renderFinanzasTab(); }
+    };
+
     document.getElementById("cm-fin-mes-prev").onclick = function(){
       var p = state.finViewMes.split("-").map(function(x){return parseInt(x,10);});
       var d = new Date(p[0], p[1]-2, 1);
