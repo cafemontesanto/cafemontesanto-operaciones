@@ -162,12 +162,18 @@ function fb(){ return window.__fbInstances; }
     templates: [], pedidos: [], staffList: [],
     rotacionPeriod: "7", compCache: {},
     authMode: "login",
-    finConceptos: [], finViewMes: null
+    finConceptos: [], finViewMes: null, finFiltroCategoria: ""
   };
 
   function todayStr(d){ d=d||new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function formatDateEs(d){ return DAY_NAMES_FULL[d.getDay()]+", "+d.getDate()+" de "+MONTH_NAMES[d.getMonth()]+" de "+d.getFullYear(); }
   function bs(n){ n = Number(n)||0; return "Bs " + n.toLocaleString('es-BO', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+  function ddmmaaaa(fechaIso){
+    if(!fechaIso) return "";
+    var p = fechaIso.split("-");
+    if(p.length!==3) return fechaIso;
+    return p[2]+"/"+p[1]+"/"+p[0];
+  }
   function mesStr(d){ d=d||new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
   function mesLabel(mesStrVal){
     var parts = mesStrVal.split("-"); var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
@@ -580,13 +586,23 @@ function fb(){ return window.__fbInstances; }
       '<button class="cm-btn-primary" id="fin-gasto-submit">Registrar gasto</button></div>';
 
     html += '<div class="cm-card-title" style="margin-top:18px;">Gastos de '+mesLabel(mesActual)+'</div>';
-    if(gastosMes.length===0) html += '<div class="cm-empty">Sin gastos registrados.</div>';
-    gastosMes.slice().sort(function(a,b){ return (b.fecha||"").localeCompare(a.fecha||""); }).forEach(function(g){
+    var categoriasDisponibles = Array.from(new Set(gastosMes.map(function(g){return g.categoria;}))).sort();
+    html += '<div class="cm-field"><label>Filtrar por categoría</label><select id="fin-gastos-filtro"><option value="">Todas</option>' +
+      categoriasDisponibles.map(function(c){ return '<option value="'+escapeHtml(c)+'"'+(state.finFiltroCategoria===c?' selected':'')+'>'+escapeHtml(c)+'</option>'; }).join("") + '</select></div>';
+    var gastosFiltrados = state.finFiltroCategoria ? gastosMes.filter(function(g){return g.categoria===state.finFiltroCategoria;}) : gastosMes;
+    if(state.finFiltroCategoria){
+      var subtotal = gastosFiltrados.reduce(function(s,g){return s+(g.monto||0);},0);
+      html += '<div class="cm-section-note">'+gastosFiltrados.length+' gasto(s) en "'+escapeHtml(state.finFiltroCategoria)+'" — subtotal: '+bs(subtotal)+'</div>';
+    }
+    html += '<div id="fin-gastos-lista">';
+    if(gastosFiltrados.length===0) html += '<div class="cm-empty">Sin gastos para mostrar.</div>';
+    gastosFiltrados.slice().sort(function(a,b){ return (b.fecha||"").localeCompare(a.fecha||""); }).forEach(function(g){
       html += '<div class="cm-pedido-row"><div class="cm-pedido-info">'+escapeHtml(g.categoria)+' — '+bs(g.monto)+
         (g.detalle ? '<div class="cm-pedido-meta">'+escapeHtml(g.detalle)+'</div>' : '') +
-        '<div class="cm-pedido-meta">'+(g.tipo==="fijo"?"Fijo":"Variable")+' · '+(g.fecha||g.mesAplicable)+' · '+escapeHtml(g.registradoPorNombre||"")+'</div></div>' +
+        '<div class="cm-pedido-meta">'+(g.tipo==="fijo"?"Fijo":"Variable")+' · '+(g.fecha?ddmmaaaa(g.fecha):g.mesAplicable)+' · '+escapeHtml(g.registradoPorNombre||"")+'</div></div>' +
         '<button class="cm-btn-text fin-del-gasto" data-id="'+g.id+'">Eliminar</button></div>';
     });
+    html += '</div>';
 
     html += '<div class="cm-card-title" style="margin-top:18px;">Historial de cierres de caja — '+mesLabel(mesActual)+'</div>';
     if(ingresosMes.length===0) html += '<div class="cm-empty">Sin cierres registrados este mes.</div>';
@@ -594,7 +610,7 @@ function fb(){ return window.__fbInstances; }
       html += '<div class="cm-table-scroll"><table class="cm-admin-table"><tr><th>Fecha</th><th>Efectivo</th><th>QR</th><th>Tarjeta</th><th>Total</th><th>Registrado por</th></tr>';
       ingresosMes.slice().sort(function(a,b){return (b.fecha||"").localeCompare(a.fecha||"");}).forEach(function(i){
         var tot=(i.efectivo||0)+(i.qr||0)+(i.tarjeta||0);
-        html += '<tr><td>'+i.fecha+'</td><td>'+bs(i.efectivo)+'</td><td>'+bs(i.qr)+'</td><td>'+bs(i.tarjeta)+'</td><td>'+bs(tot)+'</td><td>'+escapeHtml(i.registradoPorNombre||"")+'</td></tr>';
+        html += '<tr><td>'+ddmmaaaa(i.fecha)+'</td><td>'+bs(i.efectivo)+'</td><td>'+bs(i.qr)+'</td><td>'+bs(i.tarjeta)+'</td><td>'+bs(tot)+'</td><td>'+escapeHtml(i.registradoPorNombre||"")+'</td></tr>';
       });
       html += '</table></div>';
     }
@@ -614,7 +630,7 @@ function fb(){ return window.__fbInstances; }
   }
 
   function renderCierreCajaCard(fecha, ingreso, cerrado){
-    var html = '<div class="cm-card"><div class="cm-card-title">Cierre de caja — hoy ('+fecha+')</div>';
+    var html = '<div class="cm-card"><div class="cm-card-title">Cierre de caja — hoy ('+ddmmaaaa(fecha)+')</div>';
     if(cerrado){
       html += '<div class="cm-section-note">El cierre de hoy ya está bloqueado (pasadas las 23:59) y no se puede modificar.</div>';
       html += '<div class="cm-row"><div><div class="cm-tmpl-rec">Efectivo</div>'+bs(ingreso.efectivo)+'</div><div><div class="cm-tmpl-rec">QR</div>'+bs(ingreso.qr)+'</div><div><div class="cm-tmpl-rec">Tarjeta</div>'+bs(ingreso.tarjeta)+'</div></div>';
@@ -645,6 +661,11 @@ function fb(){ return window.__fbInstances; }
   function bindFinanzasSocioForm(mesActual, datos){
     document.getElementById("cm-fin-reporte-btn").onclick = function(){ abrirReporteMes(mesActual, datos); };
 
+    document.getElementById("fin-gastos-filtro").onchange = function(){
+      state.finFiltroCategoria = this.value;
+      renderFinanzasTab();
+    };
+
     document.getElementById("hist-submit").onclick = async function(){
       var fecha = document.getElementById("hist-fecha").value;
       if(!fecha){ alert("Elegí una fecha."); return; }
@@ -662,12 +683,14 @@ function fb(){ return window.__fbInstances; }
       var p = state.finViewMes.split("-").map(function(x){return parseInt(x,10);});
       var d = new Date(p[0], p[1]-2, 1);
       state.finViewMes = mesStr(d);
+      state.finFiltroCategoria = "";
       renderFinanzasTab();
     };
     document.getElementById("cm-fin-mes-next").onclick = function(){
       var p = state.finViewMes.split("-").map(function(x){return parseInt(x,10);});
       var d = new Date(p[0], p[1], 1);
       state.finViewMes = mesStr(d);
+      state.finFiltroCategoria = "";
       renderFinanzasTab();
     };
 
@@ -746,6 +769,8 @@ function fb(){ return window.__fbInstances; }
     var win = window.open("", "_blank");
     var GU = "#5C2B3E", CR = "#F2EBE5";
     var html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reporte — '+mesLabel(mesActual)+'</title>';
+    html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></scr' + 'ipt>';
+    html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></scr' + 'ipt>';
     html += '<style>';
     html += "@page { margin: 18mm; } body{font-family:Georgia,'Times New Roman',serif;color:#2B2B2B;max-width:760px;margin:0 auto;padding:20px;background:#fff;}";
     html += 'h1{font-size:22px;color:'+GU+';margin-bottom:2px;} .sub{color:#777;font-size:13px;margin-bottom:24px;}';
@@ -766,7 +791,7 @@ function fb(){ return window.__fbInstances; }
 
     html += '<h1>Café Montesanto</h1><div class="sub">Reporte financiero — '+mesLabel(mesActual)+'</div>';
 
-    html += '<div class="noprint"><button onclick="window.print()">Imprimir / Guardar como PDF</button><button onclick="window.close()" style="background:#999;">Cerrar</button></div>';
+    html += '<div class="noprint"><button id="btn-descargar-pdf">Descargar PDF</button><button onclick="window.print()" style="background:#8a5468;">Imprimir</button><button onclick="window.close()" style="background:#999;">Cerrar</button></div>';
 
     html += '<h2>Resumen</h2>';
     var fraseUtilidad = d.utilidad >= 0
@@ -800,10 +825,45 @@ function fb(){ return window.__fbInstances; }
     } else {
       html += '<table><tr><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Saldo acumulado</th></tr>';
       movimientos.forEach(function(m){
-        html += '<tr><td>'+m.fecha+'</td><td>'+m.concepto+'</td><td class="'+(m.monto>=0?'pos':'neg')+'">'+(m.monto>=0?'+ ':'- ')+bs(Math.abs(m.monto))+'</td><td>'+bs(m.saldo)+'</td></tr>';
+        html += '<tr><td>'+ddmmaaaa(m.fecha)+'</td><td>'+m.concepto+'</td><td class="'+(m.monto>=0?'pos':'neg')+'">'+(m.monto>=0?'+ ':'- ')+bs(Math.abs(m.monto))+'</td><td>'+bs(m.saldo)+'</td></tr>';
       });
       html += '</table>';
     }
+
+    var pdfData = {
+      mesLabel: mesLabel(mesActual),
+      frase: 'Este mes el café generó '+bs(d.totalIngresos)+' en ingresos y tuvo '+bs(d.totalGastos)+' en gastos. Después de cubrir todos los gastos, '+(d.utilidad>=0 ? 'quedó una utilidad de '+bs(d.utilidad)+' (margen del '+margen+'%).' : 'los gastos superaron a los ingresos por '+bs(Math.abs(d.utilidad))+'.'),
+      totalIngresos: bs(d.totalIngresos), totalGastos: bs(d.totalGastos), utilidad: bs(d.utilidad),
+      metodos: [["Efectivo",bs(d.totalEfectivo)],["QR",bs(d.totalQr)],["Tarjeta",bs(d.totalTarjeta)]],
+      categorias: catEntries.map(function(e){ return [e.cat, bs(e.total)]; }),
+      movimientos: movimientos.map(function(m){ return [ddmmaaaa(m.fecha), m.concepto, (m.monto>=0?'+ ':'- ')+bs(Math.abs(m.monto)), bs(m.saldo)]; })
+    };
+    html += '<scr' + 'ipt>';
+    html += 'var PDF_DATA = ' + JSON.stringify(pdfData) + ';';
+    html += 'document.getElementById("btn-descargar-pdf").onclick = function(){';
+    html += '  var jsPDFlib = window.jspdf && window.jspdf.jsPDF;';
+    html += '  if(!jsPDFlib){ alert("No se pudo cargar el generador de PDF (revisá tu conexión a internet) — usá el botón Imprimir como alternativa."); return; }';
+    html += '  var pdf = new jsPDFlib();';
+    html += '  pdf.setFont("helvetica","bold"); pdf.setFontSize(16); pdf.setTextColor(92,43,62);';
+    html += '  pdf.text("Cafe Montesanto", 14, 18);';
+    html += '  pdf.setFontSize(11); pdf.setTextColor(100);';
+    html += '  pdf.text("Reporte financiero - " + PDF_DATA.mesLabel, 14, 25);';
+    html += '  pdf.setTextColor(40); pdf.setFont("helvetica","normal"); pdf.setFontSize(10);';
+    html += '  var fraseLines = pdf.splitTextToSize(PDF_DATA.frase, 182);';
+    html += '  pdf.text(fraseLines, 14, 35);';
+    html += '  var y = 35 + fraseLines.length*5 + 6;';
+    html += '  pdf.setFont("helvetica","bold"); pdf.text("Ingresos: " + PDF_DATA.totalIngresos + "   Gastos: " + PDF_DATA.totalGastos + "   Utilidad: " + PDF_DATA.utilidad, 14, y);';
+    html += '  y += 10;';
+    html += '  pdf.autoTable({ startY: y, head: [["Metodo de pago","Monto"]], body: PDF_DATA.metodos, theme:"grid", headStyles:{fillColor:[92,43,62]}, margin:{left:14,right:14}, tableWidth: 90 });';
+    html += '  var y2 = pdf.lastAutoTable.finalY + 8;';
+    html += '  pdf.autoTable({ startY: y2, head: [["Categoria de gasto","Monto"]], body: PDF_DATA.categorias.length?PDF_DATA.categorias:[["Sin gastos registrados",""]], theme:"grid", headStyles:{fillColor:[92,43,62]}, margin:{left:14,right:14}, tableWidth: 90 });';
+    html += '  pdf.addPage();';
+    html += '  pdf.setFont("helvetica","bold"); pdf.setFontSize(13); pdf.setTextColor(92,43,62);';
+    html += '  pdf.text("Extracto general - " + PDF_DATA.mesLabel, 14, 18);';
+    html += '  pdf.autoTable({ startY: 24, head: [["Fecha","Concepto","Monto","Saldo"]], body: PDF_DATA.movimientos, theme:"striped", headStyles:{fillColor:[92,43,62]}, styles:{fontSize:8}, margin:{left:14,right:14} });';
+    html += '  pdf.save("reporte-montesanto-" + "' + mesActual + '" + ".pdf");';
+    html += '};';
+    html += '</scr' + 'ipt>';
 
     html += '</body></html>';
     win.document.write(html);
