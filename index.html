@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="Montesanto Operaciones">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#5C2B3E">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Catamaran:wght@200;400;600;700&display=swap');
@@ -1707,6 +1709,53 @@ function fb(){ return window.__fbInstances; }
     await loadTemplates();
     await loadPedidos();
     renderShell();
+  }
+
+  /* ---------- Instalación como app (PWA) ---------- */
+  var instalarEvento = null;
+  function yaInstalada(){
+    return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+  }
+  function quitarBannerInstalar(){ var b = document.getElementById("cm-install-banner"); if(b) b.remove(); }
+  function instalacionOculta(){
+    try { var v = parseInt(localStorage.getItem("cm-install-oculto")||"0", 10); return !!v && (Date.now()-v) < 7*24*3600*1000; }
+    catch(e){ return false; }
+  }
+  function mostrarBannerInstalar(texto, onInstalar){
+    if(yaInstalada() || document.getElementById("cm-install-banner")) return;
+    var b = document.createElement("div");
+    b.id = "cm-install-banner";
+    b.style.cssText = "position:fixed;left:12px;right:12px;bottom:12px;z-index:300;max-width:696px;margin:0 auto;background:#F2EBE5;color:#5C2B3E;border-radius:12px;padding:12px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.35);display:flex;align-items:center;gap:10px;font-size:14px;line-height:1.35;";
+    var t = document.createElement("span"); t.style.flex = "1"; t.textContent = texto; b.appendChild(t);
+    if(onInstalar){
+      var bi = document.createElement("button"); bi.textContent = "Instalar";
+      bi.style.cssText = "background:#5C2B3E;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;min-height:42px;";
+      bi.onclick = onInstalar; b.appendChild(bi);
+    }
+    var bc = document.createElement("button"); bc.textContent = "✕"; bc.setAttribute("aria-label", "Cerrar");
+    bc.style.cssText = "background:none;border:none;color:#5C2B3E;font-size:18px;min-width:40px;min-height:42px;";
+    bc.onclick = function(){ quitarBannerInstalar(); try { localStorage.setItem("cm-install-oculto", String(Date.now())); } catch(e){} };
+    b.appendChild(bc);
+    document.body.appendChild(b);
+  }
+  window.addEventListener("beforeinstallprompt", function(e){
+    e.preventDefault();
+    instalarEvento = e;
+    if(instalacionOculta()) return;
+    mostrarBannerInstalar("Instalá la app de Operaciones en tu celular para abrirla con un toque.", function(){
+      if(!instalarEvento) return;
+      instalarEvento.prompt();
+      instalarEvento.userChoice.then(function(){ instalarEvento = null; quitarBannerInstalar(); });
+    });
+  });
+  window.addEventListener("appinstalled", function(){ instalarEvento = null; quitarBannerInstalar(); });
+  if(/iphone|ipad|ipod/i.test(window.navigator.userAgent || "") && !yaInstalada() && !instalacionOculta()){
+    setTimeout(function(){ mostrarBannerInstalar("Para instalar la app: tocá Compartir y elegí “Agregar a pantalla de inicio”.", null); }, 1500);
+  }
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(e){ console.warn("No se pudo registrar el service worker", e); });
+    });
   }
 
   window.addEventListener("cm-fb-ready", function(){
